@@ -1,0 +1,51 @@
+{
+  "num_trials": 20,
+  "hyperparameters": [
+    {
+      "name": "encode_to_decode_ratio",
+      "short_desc": "Ratio of history window (encoding) length to prediction window (decoding) length.",
+      "type": "int",
+      "search_type": "uniform",
+      "range_low": 3,
+      "range_high": 6
+    },
+    {
+      "name": "n_estimators",
+      "short_desc": "The number of trees in the forest.",
+      "type": "int",
+      "search_type": "uniform",
+      "range_low": 50,
+      "range_high": 300
+    },
+    {
+      "name": "max_depth",
+      "short_desc": "Max depth of the tree",
+      "type": "int",
+      "search_type": "uniform",
+      "range_low": 3,
+      "range_high": 20
+    },
+    {
+      "name": "eta",
+      "short_desc": "Step size shrinkage used in update to prevents overfitting - alias learning rate",
+      "type": "real",
+      "range_low": 0.1,
+      "range_high": 0.5,
+      "search_type": "uniform"
+    },
+    {
+      "name": "gamma",
+      "short_desc": "Minimum loss reduction required to make a further partition on a leaf node of the tree.",
+      "type": "real",
+      "range_low": 0.0,
+      "range_high": 0.2,
+      "search_type": "uniform"
+    },
+    {
+      "name": "use_exogenous",
+      "short_desc": "Whether or not to use exogenous features.",
+      "type": "categorical",
+      "categorical_vals": ["True", "False"]
+    }
+  ]
+}
