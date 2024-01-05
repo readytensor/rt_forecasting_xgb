@@ -1,5 +1,5 @@
 import argparse
-import sys
+import time
 
 from config import paths
 from data_models.data_validator import validate_data
@@ -63,6 +63,7 @@ def run_training(
     try:
 
         logger.info("Starting training...")
+        start = time.time()
         # load and save schema
         logger.info("Loading and saving schema...")
         data_schema = load_json_data_schema(input_schema_dir)
@@ -110,19 +111,44 @@ def run_training(
         logger.info("Saving pipelines...")
         save_pipelines(trained_pipeline, inference_pipeline, preprocessing_dir_path)
 
-        # # use default hyperparameters to train model
-        logger.info("Training forecaster...")
-        forecaster = train_predictor_model(
-            train_data=transformed_data,
-            forecast_length=data_schema.forecast_length,
-            hyperparameters=default_hyperparameters
-        )
+        # hyperparameter tuning + training the model
+        if run_tuning:
+            logger.info("Tuning hyperparameters...")
+            train_split, valid_split = train_test_split(
+                transformed_data,
+                test_split=model_config["validation_split"]
+            )
+            tuned_hyperparameters = tune_hyperparameters(
+                train_split=train_split,
+                valid_split=valid_split,
+                forecast_length=data_schema.forecast_length,
+                hpt_results_dir_path=hpt_results_dir_path,
+                is_minimize=False, # scoring metric is r-squared - so maximize it.
+                default_hyperparameters_file_path=default_hyperparameters_file_path,
+                hpt_specs_file_path=hpt_specs_file_path,
+            )
+            logger.info("Training forecaster...")
+            forecaster = train_predictor_model(
+                train_data=transformed_data,
+                forecast_length=data_schema.forecast_length,
+                hyperparameters=tuned_hyperparameters,
+            )
+        else:
+            # # use default hyperparameters to train model
+            logger.info("Training forecaster...")
+            forecaster = train_predictor_model(
+                train_data=transformed_data,
+                forecast_length=data_schema.forecast_length,
+                hyperparameters=default_hyperparameters
+            )
 
         # save predictor model
         logger.info("Saving forecaster...")
         save_predictor_model(forecaster, predictor_dir_path)
-
-        logger.info("Training completed successfully")
+        
+        end = time.time()
+        elapsed_time = end - start
+        logger.info(f"Training completed in {round(elapsed_time/60., 3)} minutes")
 
     except Exception as exc:
         err_msg = "Error occurred during training."
