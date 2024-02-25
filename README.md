@@ -1,6 +1,6 @@
-# XGBoost Forecasting Model in Scikit-Learn
+# XGBoost Forecasting Model 
 
-This is an implementation of a XGBoost Forecasting Model in Scikit-Learn as per Ready Tensor specifications. The workflow is as follows:
+This is an implementation of a XGBoost Forecasting Model as per Ready Tensor specifications. The workflow is as follows:
 
 - Timeseries data is converted into tabular form by extracting multiple windows of data from the timeseries. Individual time steps become columns in the tabular data.
 - When dataset contains exogenous features, they are also converted into tabular form and the columns are concatenated.
@@ -33,7 +33,7 @@ The following are the requirements for using your data with this model:
 
 Here are the highlights of this implementation: <br/>
 
-- A **XGBoost Forecaster** algorithm built using **Scikit-Learn**
+- A **XGBoost Forecaster** algorithm
   Additionally, the implementation contains the following features:
 - **Data Validation**: Pydantic data validation is used for the schema, training and test files, as well as the inference request data.
 - **Error handling and logging**: Python's logging module is used for logging and key functions include exception handling.
