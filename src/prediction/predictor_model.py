@@ -65,7 +65,8 @@ class Forecaster:
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
             eta=self.eta,
-            gamma=self.gamma
+            gamma=self.gamma,
+            objective ='reg:squarederror'
         )
         return model
 
