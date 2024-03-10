@@ -6,7 +6,6 @@ import tracemalloc
 from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import pandas as pd
-from memory_profiler import memory_usage
 
 
 def read_json_as_dict(input_path: str) -> Dict:
@@ -304,30 +303,3 @@ class TimeAndMemoryTracker(object):
 
         self.logger.info(f"Execution time: {elapsed_time:.2f} seconds")
         self.logger.info(f"Memory allocated (peak): {peak / 1024**2:.2f} MB")
-
-
-def track_resources(func, logger=print) -> None:
-    """
-    Tracks and logs the resource usage (execution time and memory) of a given function.
-
-    Parameters:
-        func (Callable): The function to be executed and tracked.
-        logger (Callable): A logging function to output the results. Defaults to `print`.
-
-    Returns:
-        None
-
-    This function tracks the execution time and peak memory usage (both CPU and CUDA, if available)
-    of the provided function `func`. It logs the results using the provided `logger` function.
-    """
-
-    start_time = time.time()
-
-    cpu_peak_memory = memory_usage(func, max_usage=True)
-
-    end_time = time.time()
-
-    elapsed_time = end_time - start_time
-
-    logger(f"Execution time: {elapsed_time:.2f} seconds")
-    logger(f"CPU Memory allocated (peak): { cpu_peak_memory:.2f} MB")
