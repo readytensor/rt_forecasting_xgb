@@ -76,6 +76,7 @@ class Forecaster:
             gamma=self.gamma,
             objective ='reg:squarederror',
             n_jobs=n_jobs,
+            tree_method="gpu_hist"
         )
         return model
 
