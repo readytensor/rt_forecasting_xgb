@@ -2,11 +2,17 @@ import json
 import os
 import random
 import time
+import threading
 import tracemalloc
+import psutil
 import pynvml
 from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import pandas as pd
+
+
+pynvml.nvmlInit()
+device_handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assuming we're using the first GPU
 
 
 def read_json_as_dict(input_path: str) -> Dict:
@@ -281,38 +287,81 @@ def make_serializable(obj: Any) -> Union[int, float, List[Union[int, float]], An
         return json.JSONEncoder.default(None, obj)
 
 
-class TimeAndMemoryTracker(object):
+def get_gpu_memory_usage():
     """
-    This class serves as a context manager to track time, CPU, and GPU memory allocated by code executed inside it.
+    Returns the current GPU memory usage by the selected device (in MB).
     """
+    mem_info = pynvml.nvmlDeviceGetMemoryInfo(device_handle)
+    return mem_info.used / (1024 * 1024)
 
-    def __init__(self, logger):
+class MemoryMonitor:
+    def __init__(self, interval=1.0, logger=print):
+        self.interval = interval
         self.logger = logger
-        # Initialize NVML for GPU memory tracking
-        pynvml.nvmlInit()
+        self.running = False
+        self.thread = threading.Thread(target=self.monitor_loop)
+        self.initial_cpu_memory = None
+        self.initial_gpu_memory = get_gpu_memory_usage()
+        self.peak_cpu_memory = 0
+        self.peak_gpu_memory = self.initial_gpu_memory
+
+    def monitor_memory(self):
+        process = psutil.Process(os.getpid())
+        current_cpu_memory = process.memory_info().rss
+        current_gpu_memory = get_gpu_memory_usage()
+
+        if self.initial_cpu_memory is None:
+            self.initial_cpu_memory = current_cpu_memory
+
+        self.peak_cpu_memory = max(self.peak_cpu_memory, current_cpu_memory)
+        self.peak_gpu_memory = max(self.peak_gpu_memory, current_gpu_memory)
+
+    def monitor_loop(self):
+        while self.running:
+            self.monitor_memory()
+            time.sleep(self.interval)
+
+    def start(self):
+        self.running = True
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        self.thread.join()
+        
+    def get_peak_memory_usage(self):
+        incremental_cpu_peak_memory = (self.peak_cpu_memory - self.initial_cpu_memory) / (1024**2)
+        incremental_gpu_peak_memory = (self.peak_gpu_memory - self.initial_gpu_memory)
+        return incremental_cpu_peak_memory, incremental_gpu_peak_memory
+
+
+class TimeAndMemoryTracker:
+    """
+    This class serves as a context manager to track time, Python-specific,
+    and total system memory allocated by code executed inside it.
+    """
+    def __init__(self, logger, monitoring_interval=1.0):
+        self.logger = logger
+        self.monitor = MemoryMonitor(interval=monitoring_interval, logger=logger.log)
 
     def __enter__(self):
         tracemalloc.start()
         self.start_time = time.time()
-        # Get handle for the first GPU
-        self.handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        # Record the initial GPU memory usage
-        self.start_gpu_mem = pynvml.nvmlDeviceGetMemoryInfo(self.handle).used
+        self.monitor.start()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.end_time = time.time()
-        _, peak = tracemalloc.get_traced_memory()
+        self.monitor.stop()
+        
+        current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        # Get the final GPU memory usage and calculate the difference
-        end_gpu_mem = pynvml.nvmlDeviceGetMemoryInfo(self.handle).used
-        gpu_mem_usage = end_gpu_mem - self.start_gpu_mem
-
+        
         elapsed_time = self.end_time - self.start_time
+        peak_memory_mb = peak / 1024**2
+        incremental_cpu_peak_memory_mb, incremental_gpu_peak_memory_mb = self.monitor.get_peak_memory_usage()
 
         self.logger.info(f"Execution time: {elapsed_time:.2f} seconds")
-        self.logger.info(f"Memory allocated (peak): {peak / 1024**2:.2f} MB")
-        self.logger.info(f"GPU memory allocated: {gpu_mem_usage / 1024**2:.2f} MB")
-
-        # Shutdown NVML
-        pynvml.nvmlShutdown()
+        self.logger.info(f"Total CPU memory allocated (peak): {incremental_cpu_peak_memory_mb:.2f} MB")
+        self.logger.info(f"Total GPU memory allocated (peak): {incremental_gpu_peak_memory_mb:.2f} MB")
+        self.logger.info(f"Python memory allocated (peak): {peak_memory_mb:.2f} MB")
