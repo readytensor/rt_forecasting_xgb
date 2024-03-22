@@ -8,9 +8,17 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
 from sklearn.exceptions import NotFittedError
+from multiprocessing import cpu_count
 
 warnings.filterwarnings("ignore")
 PREDICTOR_FILE_NAME = "predictor.joblib"
+
+# Determine the number of CPUs available
+n_cpus = cpu_count()
+
+# Set n_jobs to be one less than the number of CPUs, with a minimum of 1
+n_jobs = max(1, n_cpus - 1)
+print(f"Using n_jobs = {n_jobs}")
 
 
 class Forecaster:
@@ -66,7 +74,8 @@ class Forecaster:
             max_depth=self.max_depth,
             eta=self.eta,
             gamma=self.gamma,
-            objective ='reg:squarederror'
+            objective ='reg:squarederror',
+            n_jobs=n_jobs,
         )
         return model
 
