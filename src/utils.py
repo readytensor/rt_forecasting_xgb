@@ -3,6 +3,7 @@ import os
 import random
 import time
 import tracemalloc
+import pynvml
 from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import pandas as pd
@@ -282,24 +283,36 @@ def make_serializable(obj: Any) -> Union[int, float, List[Union[int, float]], An
 
 class TimeAndMemoryTracker(object):
     """
-    This class serves as a context manager to track time and
-    memory allocated by code executed inside it.
+    This class serves as a context manager to track time, CPU, and GPU memory allocated by code executed inside it.
     """
 
     def __init__(self, logger):
         self.logger = logger
+        # Initialize NVML for GPU memory tracking
+        pynvml.nvmlInit()
 
     def __enter__(self):
         tracemalloc.start()
         self.start_time = time.time()
+        # Get handle for the first GPU
+        self.handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        # Record the initial GPU memory usage
+        self.start_gpu_mem = pynvml.nvmlDeviceGetMemoryInfo(self.handle).used
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.end_time = time.time()
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
+        # Get the final GPU memory usage and calculate the difference
+        end_gpu_mem = pynvml.nvmlDeviceGetMemoryInfo(self.handle).used
+        gpu_mem_usage = end_gpu_mem - self.start_gpu_mem
 
         elapsed_time = self.end_time - self.start_time
 
         self.logger.info(f"Execution time: {elapsed_time:.2f} seconds")
         self.logger.info(f"Memory allocated (peak): {peak / 1024**2:.2f} MB")
+        self.logger.info(f"GPU memory allocated: {gpu_mem_usage / 1024**2:.2f} MB")
+
+        # Shutdown NVML
+        pynvml.nvmlShutdown()
