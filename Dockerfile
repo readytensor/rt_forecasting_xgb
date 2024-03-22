@@ -1,28 +1,40 @@
-# get slim base image for python
-FROM python:3.9.17-slim-bullseye as builder
-# Install OS dependencies
-RUN apt-get -y update && apt-get install -y --no-install-recommends \
+# Use an NVIDIA CUDA base image
+FROM nvidia/cuda:12.2.0-runtime-ubuntu20.04 as builder
+
+# Install OS dependencies and cleanup in a single RUN to reduce layers and ensure minimal size
+RUN apt-get update && apt-get install -y --no-install-recommends \
          ca-certificates \
          dos2unix \
-    && rm -rf /var/lib/apt/lists/*
+         python3.9 \
+         python3-pip \
+    && ln -sf /usr/bin/python3.9 /usr/bin/python \
+    && ln -sf /usr/bin/python3.9 /usr/bin/python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3.9 -m pip install --upgrade pip
+
 # copy requirements file and and install
 COPY ./requirements.txt /opt/
-RUN pip3 install --no-cache-dir -r /opt/requirements.txt
-# copy src code into image and chmod scripts
-COPY src ./opt/src
+RUN python3.9 -m pip install --no-cache-dir -r /opt/requirements.txt
+
+# Copy source code and scripts into image and set permissions
+COPY src /opt/src
 COPY ./entry_point.sh /opt/
-RUN chmod +x /opt/entry_point.sh
 COPY ./fix_line_endings.sh /opt/
-RUN chmod +x /opt/fix_line_endings.sh
-RUN /opt/fix_line_endings.sh "/opt/src"
-RUN /opt/fix_line_endings.sh "/opt/entry_point.sh"
+RUN chmod +x /opt/entry_point.sh \
+    && chmod +x /opt/fix_line_endings.sh \
+    && /opt/fix_line_endings.sh "/opt/src" \
+    && /opt/fix_line_endings.sh "/opt/entry_point.sh"
+
 # Set working directory
 WORKDIR /opt/src
-# set python variables and path
-ENV PYTHONUNBUFFERED=TRUE
-ENV PYTHONDONTWRITEBYTECODE=TRUE
-ENV PATH="/opt/src:${PATH}"
-# set non-root user
+
+# Set Python environment variables
+ENV PYTHONUNBUFFERED=TRUE \
+    PYTHONDONTWRITEBYTECODE=TRUE \
+    PATH="/opt/src:${PATH}"
+
+# Set non-root user
 USER 1000
-# set entrypoint
+
+# Set entrypoint
 ENTRYPOINT ["/opt/entry_point.sh"]
