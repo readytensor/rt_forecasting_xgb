@@ -102,18 +102,16 @@ class HyperParameterTuner:
 
     def _get_objective_func(
         self,
-        train_X: Union[pd.DataFrame, np.ndarray],
-        train_y: Union[pd.Series, np.ndarray],
-        valid_X: Union[pd.DataFrame, np.ndarray],
-        valid_y: Union[pd.Series, np.ndarray],
+        train_split: np.ndarray,
+        valid_split: np.ndarray,
+        forecast_length: int,
     ) -> Callable:
         """Gets the objective function for hyperparameter tuning.
 
         Args:
-            train_X: Training data features.
-            train_y: Training data labels.
-            valid_X: Validation data features.
-            valid_y: Validation data labels.
+            train_split: Training data.
+            valid_split: Validation data.
+            forecast_length: Length of forecast window.
 
         Returns:
             A callable objective function for hyperparameter tuning.
@@ -124,10 +122,11 @@ class HyperParameterTuner:
             its performance"""
             # convert list of HP values into a dictionary of name:val pairs
             hyperparameters = dict(zip(self.hyperparameter_names, trial))
+            print(hyperparameters)
             # train model
-            classifier = train_predictor_model(train_X, train_y, hyperparameters)
+            classifier = train_predictor_model(train_split, forecast_length, hyperparameters)
             # evaluate the model
-            score = round(evaluate_predictor_model(classifier, valid_X, valid_y), 6)
+            score = round(evaluate_predictor_model(classifier, valid_split), 6)
             if np.isnan(score) or math.isinf(score):
                 # sometimes loss becomes inf/na, so use a large "bad" value
                 score = 1.0e6 if self.is_minimize else -1.0e6
@@ -186,25 +185,23 @@ class HyperParameterTuner:
 
     def run_hyperparameter_tuning(
         self,
-        train_X: Union[pd.DataFrame, np.ndarray],
-        train_y: Union[pd.Series, np.ndarray],
-        valid_X: Union[pd.DataFrame, np.ndarray],
-        valid_y: Union[pd.Series, np.ndarray],
+        train_split: np.ndarray,
+        valid_split: np.ndarray,
+        forecast_length: int,
     ) -> Dict[str, Any]:
         """Runs the hyperparameter tuning process.
 
         Args:
-            train_X: Training data features.
-            train_y: Training data labels.
-            valid_X: Validation data features.
-            valid_y: Validation data labels.
+            train_split: Training data.
+            valid_split: Validation data.
+            forecast_length: Length of forecast window.
 
         Returns:
             A dictionary containing the best model name, hyperparameters, and score.
         """
         # Use 1/3 of the trials to explore the space initially, but at most 5 trials
         n_initial_points = max(1, min(self.num_trials // 3, 5))
-        objective_func = self._get_objective_func(train_X, train_y, valid_X, valid_y)
+        objective_func = self._get_objective_func(train_split, valid_split, forecast_length)
         optimizer_results = gp_minimize(
             # the objective function to minimize
             func=objective_func,
@@ -220,7 +217,7 @@ class HyperParameterTuner:
             # Number of calls to `func`,
             n_calls=self.num_trials,
             random_state=0,
-            callback=[logger_callback, StoppingCriterion(delta=0.03, n_best=5)],
+            callback=[logger_callback, StoppingCriterion(delta=0.001, n_best=5)],
             verbose=False,
         )
         self.save_hpt_summary_results(optimizer_results)
@@ -268,10 +265,9 @@ class HyperParameterTuner:
 
 
 def tune_hyperparameters(
-    train_X: Union[pd.DataFrame, np.ndarray],
-    train_y: Union[pd.Series, np.ndarray],
-    valid_X: Union[pd.DataFrame, np.ndarray],
-    valid_y: Union[pd.Series, np.ndarray],
+    train_split: np.ndarray,
+    valid_split: np.ndarray,
+    forecast_length: int,
     hpt_results_dir_path: str,
     is_minimize: bool = True,
     default_hyperparameters_file_path: str = paths.DEFAULT_HYPERPARAMETERS_FILE_PATH,
@@ -285,10 +281,9 @@ def tune_hyperparameters(
     tuning process and returns the best hyperparameters.
 
     Args:
-        train_X (Union[pd.DataFrame, np.ndarray]): Training data features.
-        train_y (Union[pd.Series, np.ndarray]): Training data labels.
-        valid_X (Union[pd.DataFrame, np.ndarray]): Validation data features.
-        valid_y (Union[pd.Series, np.ndarray]): Validation data labels.
+        train_split (np.ndarray): Training data.
+        valid_split (np.ndarray): Validation data.
+        forecast_length (int): Length of forecast window.
         hpt_results_dir_path (str): Dir path to the hyperparameter tuning results file.
         is_minimize (bool, optional): Whether the metric should be minimized.
             Defaults to True.
@@ -311,6 +306,6 @@ def tune_hyperparameters(
         is_minimize=is_minimize,
     )
     best_hyperparams = hyperparameter_tuner.run_hyperparameter_tuning(
-        train_X, train_y, valid_X, valid_y
+        train_split, valid_split, forecast_length
     )
     return best_hyperparams

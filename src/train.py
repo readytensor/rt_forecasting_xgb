@@ -112,6 +112,7 @@ def run_training(
             logger.info(f"Transformed training data shape: {transformed_data.shape}")
 
             # hyperparameter tuning + training the model
+            # run_tuning = True
             if run_tuning:
                 logger.info("Tuning hyperparameters...")
                 train_split, valid_split = train_test_split(

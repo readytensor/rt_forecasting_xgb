@@ -224,17 +224,16 @@ def load_predictor_model(predictor_dir_path: str) -> Forecaster:
 
 
 def evaluate_predictor_model(
-    model: Forecaster, x_test: pd.DataFrame, y_test: pd.Series
+    model: Forecaster, test_split: np.ndarray
 ) -> float:
     """
     Evaluate the Forecaster model and return the r-squared value.
 
     Args:
         model (Forecaster): The Forecaster model.
-        x_test (pd.DataFrame): The features of the test data.
-        y_test (pd.Series): The labels of the test data.
+        test_split (np.ndarray): Test data.
 
     Returns:
         float: The r-squared value of the Forecaster model.
     """
-    return model.evaluate(x_test, y_test)
+    return model.evaluate(test_split)

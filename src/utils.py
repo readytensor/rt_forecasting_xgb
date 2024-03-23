@@ -12,7 +12,9 @@ import pandas as pd
 
 
 pynvml.nvmlInit()
-device_handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assuming we're using the first GPU
+device_handle = pynvml.nvmlDeviceGetHandleByIndex(
+    0
+)  # Assuming we're using the first GPU
 
 
 def read_json_as_dict(input_path: str) -> Dict:
@@ -289,15 +291,23 @@ def make_serializable(obj: Any) -> Union[int, float, List[Union[int, float]], An
 
 def get_gpu_memory_usage():
     """
-    Returns the current GPU memory usage by the selected device (in MB).
+    Returns the current GPU memory usage by the selected device (in bytes).
+    If the GPU or NVML is not available, returns 0.
     """
-    mem_info = pynvml.nvmlDeviceGetMemoryInfo(device_handle)
-    return mem_info.used / (1024 * 1024)
+    try:
+        if device_handle is not None:
+            mem_info = pynvml.nvmlDeviceGetMemoryInfo(device_handle)
+            return mem_info.used
+        else:
+            return 0
+    except pynvml.NVMLError as e:
+        print(f"Error retrieving GPU memory usage: {e}")
+        return 0
+
 
 class MemoryMonitor:
-    def __init__(self, interval=1.0, logger=print):
+    def __init__(self, interval=0.05):
         self.interval = interval
-        self.logger = logger
         self.running = False
         self.thread = threading.Thread(target=self.monitor_loop)
         self.initial_cpu_memory = None
@@ -328,10 +338,15 @@ class MemoryMonitor:
     def stop(self):
         self.running = False
         self.thread.join()
-        
+
     def get_peak_memory_usage(self):
-        incremental_cpu_peak_memory = (self.peak_cpu_memory - self.initial_cpu_memory) / (1024**2)
-        incremental_gpu_peak_memory = (self.peak_gpu_memory - self.initial_gpu_memory)
+        # Convert both CPU and GPU memory usage from bytes to megabytes
+        incremental_cpu_peak_memory = (
+            self.peak_cpu_memory - self.initial_cpu_memory
+        ) / (1024**2)
+        incremental_gpu_peak_memory = (
+            self.peak_gpu_memory - self.initial_gpu_memory
+        ) / (1024**2)
         return incremental_cpu_peak_memory, incremental_gpu_peak_memory
 
 
@@ -340,9 +355,10 @@ class TimeAndMemoryTracker:
     This class serves as a context manager to track time, Python-specific,
     and total system memory allocated by code executed inside it.
     """
-    def __init__(self, logger, monitoring_interval=1.0):
+
+    def __init__(self, logger, monitoring_interval=0.05):
         self.logger = logger
-        self.monitor = MemoryMonitor(interval=monitoring_interval, logger=logger.log)
+        self.monitor = MemoryMonitor(interval=monitoring_interval)
 
     def __enter__(self):
         tracemalloc.start()
@@ -353,15 +369,24 @@ class TimeAndMemoryTracker:
     def __exit__(self, exc_type, exc_value, traceback):
         self.end_time = time.time()
         self.monitor.stop()
-        
+
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        
+
         elapsed_time = self.end_time - self.start_time
-        peak_memory_mb = peak / 1024**2
-        incremental_cpu_peak_memory_mb, incremental_gpu_peak_memory_mb = self.monitor.get_peak_memory_usage()
+        peak_python_memory_mb = peak / 1024**2
+        (
+            process_cpu_peak_memory_mb,
+            gpu_peak_memory_mb,
+        ) = self.monitor.get_peak_memory_usage()
 
         self.logger.info(f"Execution time: {elapsed_time:.2f} seconds")
-        self.logger.info(f"Total CPU memory allocated (peak): {incremental_cpu_peak_memory_mb:.2f} MB")
-        self.logger.info(f"Total GPU memory allocated (peak): {incremental_gpu_peak_memory_mb:.2f} MB")
-        self.logger.info(f"Python memory allocated (peak): {peak_memory_mb:.2f} MB")
+        self.logger.info(
+            f"Peak Python Allocated Memory: {peak_python_memory_mb:.2f} MB"
+        )
+        self.logger.info(
+            f"Peak CUDA GPU Memory Usage (Incremental): {gpu_peak_memory_mb:.2f} MB"
+        )
+        self.logger.info(
+            f"Peak System RAM Usage (Incremental): {process_cpu_peak_memory_mb:.2f} MB"
+        )
