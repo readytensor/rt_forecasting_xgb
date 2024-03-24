@@ -5,7 +5,6 @@ import warnings
 
 import joblib
 import numpy as np
-import pandas as pd
 from xgboost import XGBRegressor
 from sklearn.exceptions import NotFittedError
 from multiprocessing import cpu_count

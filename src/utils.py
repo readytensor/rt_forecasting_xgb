@@ -12,9 +12,8 @@ import pandas as pd
 
 
 pynvml.nvmlInit()
-device_handle = pynvml.nvmlDeviceGetHandleByIndex(
-    0
-)  # Assuming we're using the first GPU
+# Assuming we're using the first GPU, if available
+device_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
 
 
 def read_json_as_dict(input_path: str) -> Dict:
