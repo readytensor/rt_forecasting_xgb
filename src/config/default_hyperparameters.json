@@ -2,9 +2,9 @@
   "encode_to_decode_ratio": 3.5,
   "min_windows": 25,
   "min_encode_len_ratio": 0.4,
-  "n_estimators": 50,
-  "max_depth": 5,
+  "n_estimators": null,
+  "max_depth": 6,
   "eta": 0.3,
-  "gamma": 1e-5,
+  "gamma": 0.0,
   "use_exogenous": true
 }
