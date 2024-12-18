@@ -26,27 +26,28 @@ class Forecaster:
     This class provides a consistent interface that can be used with other
     Forecaster models.
     """
+
     MODEL_NAME = "XGBoost_Timeseries_Forecaster"
 
     def __init__(
-            self,
-            encode_len:int,
-            decode_len:int,
-            n_estimators: Optional[int] = 50,
-            max_depth: Optional[int] = 5,
-            eta: Optional[float] = 0.3,
-            gamma: Optional[float] = 0.0,
-            **kwargs
-        ):
+        self,
+        encode_len: int,
+        decode_len: int,
+        n_estimators: Optional[int] = 50,
+        max_depth: Optional[int] = 5,
+        eta: Optional[float] = 0.3,
+        gamma: Optional[float] = 0.0,
+        **kwargs,
+    ):
         """
-        Construct a new XGBoost Forecaster.        
+        Construct a new XGBoost Forecaster.
 
         Args:
             encode_len (int): Encoding (history) length.
             decode_len (int): Decoding (forecast window) length.
             n_estimators (int, optional): The number of trees in the forest.
                 Defaults to 50.
-            max_depth (int, optional): The maximum depth of the tree. 
+            max_depth (int, optional): The maximum depth of the tree.
                 If None, then nodes are expanded until all leaves are pure or until
                 all leaves contain less than min_samples_split samples
                 Defaults to 10.
@@ -55,11 +56,11 @@ class Forecaster:
                 Defaults to 0.3.
             gamma (int, optional): Minimum loss reduction required to make a further
                 partition on a leaf node of the tree.
-                Defaults to 0.0. 
+                Defaults to 0.0.
         """
         self.encode_len = int(encode_len)
         self.decode_len = int(decode_len)
-        self.n_estimators = int(n_estimators)
+        self.n_estimators = n_estimators
         self.max_depth = int(max_depth)
         self.eta = eta
         self.gamma = gamma
@@ -73,16 +74,16 @@ class Forecaster:
             max_depth=self.max_depth,
             eta=self.eta,
             gamma=self.gamma,
-            objective ='reg:squarederror',
+            objective="reg:squarederror",
             n_jobs=n_jobs,
-            tree_method="gpu_hist"
+            tree_method="gpu_hist",
         )
         return model
 
-    def _get_X_and_y(self, data: np.ndarray, is_train:bool=True) -> np.ndarray:
-        """Extract X (historical target series), y (forecast window target) 
-            When is_train is True, data contains both history and forecast windows.
-            When False, only history is contained.
+    def _get_X_and_y(self, data: np.ndarray, is_train: bool = True) -> np.ndarray:
+        """Extract X (historical target series), y (forecast window target)
+        When is_train is True, data contains both history and forecast windows.
+        When False, only history is contained.
         """
         N, T, D = data.shape
         if is_train:
@@ -91,8 +92,8 @@ class Forecaster:
                     f"Training data expected to have {self.encode_len + self.decode_len}"
                     f" length on axis 1. Found length {T}"
                 )
-            X = data[:, :self.encode_len, :].reshape(N, -1) # shape = [N, T*D]
-            y = data[:, self.encode_len:, 0] # shape = [N, T]
+            X = data[:, : self.encode_len, :].reshape(N, -1)  # shape = [N, T*D]
+            y = data[:, self.encode_len :, 0]  # shape = [N, T]
         else:
             # for inference
             if T < self.encode_len:
@@ -100,7 +101,7 @@ class Forecaster:
                     f"Inference data length expected to be >= {self.encode_len}"
                     f" on axis 1. Found length {T}"
                 )
-            X = data[:, -self.encode_len:, :].reshape(N, -1)
+            X = data[:, -self.encode_len :, :].reshape(N, -1)
             y = None
         return X, y
 
@@ -180,9 +181,7 @@ def train_predictor_model(
     return model
 
 
-def predict_with_model(
-    model: Forecaster, test_data: np.ndarray
-) -> np.ndarray:
+def predict_with_model(model: Forecaster, test_data: np.ndarray) -> np.ndarray:
     """
     Make forecast.
 
@@ -222,9 +221,7 @@ def load_predictor_model(predictor_dir_path: str) -> Forecaster:
     return Forecaster.load(predictor_dir_path)
 
 
-def evaluate_predictor_model(
-    model: Forecaster, test_split: np.ndarray
-) -> float:
+def evaluate_predictor_model(model: Forecaster, test_split: np.ndarray) -> float:
     """
     Evaluate the Forecaster model and return the r-squared value.
 
