@@ -19,7 +19,7 @@ from utils import (
     read_json_as_dict,
     set_seeds,
     train_test_split,
-    TimeAndMemoryTracker,
+    ResourceTracker,
 )
 
 
@@ -62,7 +62,7 @@ def run_training(
     """
 
     try:
-        with TimeAndMemoryTracker(logger) as _:
+        with ResourceTracker(logger, monitoring_interval=0.1) as _:
             logger.info("Starting training...")
             # load and save schema
             logger.info("Loading and saving schema...")
