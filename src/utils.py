@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 from config import paths
 
+
 pynvml.nvmlInit()
-# Assuming we're using the first GPU, if available
 device_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
 
 
@@ -375,7 +375,7 @@ class ResourceTracker(object):
         elapsed_time = self.end_time - self.start_time
         peak_python_memory_mb = peak / 1024**2
         process_cpu_peak_memory_mb = self.monitor.get_peak_memory_usage()
-        gpu_peak_memory_mb = 0
+        gpu_peak_memory_mb = get_gpu_memory_usage() / (1024**2)
 
         self.logger.info(f"Execution time: {elapsed_time:.2f} seconds")
         self.logger.info(
